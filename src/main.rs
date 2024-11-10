@@ -1,24 +1,33 @@
 use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers},
+    event::{self, Event, KeyCode, KeyModifiers, KeyboardEnhancementFlags, PushKeyboardEnhancementFlags, PopKeyboardEnhancementFlags},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::io::{self, Write};
 
-fn main() -> Result<(), std::io::Error> {
+fn main() -> Result<(), io::Error> {
     enable_raw_mode()?; // Rawモードを有効化
-    println!("Press Cmd + Enter to trigger the event. Press 'q' to exit.");
+    let mut stdout = io::stdout();
+
+    // キーボード拡張フラグをプッシュ
+    execute!(
+        stdout,
+        PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        )
+    )?;
+
+    println!("Cmd + Enter を押すとイベントが発生します。終了するには 'q' を押してください。");
 
     loop {
-        // イベントを待機
         if event::poll(std::time::Duration::from_millis(500))? {
             if let Event::Key(key_event) = event::read()? {
-                // Cmd (macOSの場合は`META`) + Enter キーが押されたかを判定
+                println!("検出されたキーイベント: {:?}", key_event);
+                io::stdout().flush().unwrap();
                 if key_event.code == KeyCode::Enter && key_event.modifiers.contains(KeyModifiers::META) {
-                    println!("Cmd + Enter key pressed!");
+                    println!("Cmd + Enter が押されました！");
                     io::stdout().flush().unwrap();
                 }
-                // 'q'キーで終了
                 if key_event.code == KeyCode::Char('q') {
                     break;
                 }
@@ -26,6 +35,8 @@ fn main() -> Result<(), std::io::Error> {
         }
     }
 
+    // キーボード拡張フラグをポップ
+    execute!(stdout, PopKeyboardEnhancementFlags)?;
     disable_raw_mode()?;
     Ok(())
 }
